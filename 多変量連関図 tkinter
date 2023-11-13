@@ -1,0 +1,62 @@
+import os
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
+import itertools
+from tkinter import filedialog
+
+
+def Preprocessing(dirPath):
+    #フォルダからファイル名とファイル数取得
+    files = os.listdir(dirPath)
+    num = len(files)
+
+    #空のデータフレーム作成
+    df = pd.DataFrame()
+
+    for n in range(0,num):
+        #ファイル名を取りだし
+        name = str(files[n])
+
+        #フォルダパス作成
+        path = os.path.join(dirPath, name)
+
+        #csvからデータ取り出し
+        df_csv = pd.read_csv(path)
+
+        #データを1次元に変換
+        list_nd = df_csv.values.tolist()
+        list_1d = list(itertools.chain.from_iterable(list_nd))
+
+        #列名設定
+        col = name.replace('.csv', '')
+
+        #単一のデータフレーム作成
+        df_n = pd.DataFrame({ col : list_1d})
+
+        #統合
+        df = pd.concat([df, df_n], axis=1)
+
+    print(df)
+    return df
+
+#---------main proglam ---------
+
+print("I'm working now...")
+
+#フォルダパス指定
+dirPath = filedialog.askdirectory()
+
+#散布図行列
+df = Preprocessing(dirPath)
+sns.pairplot(df,
+            palette = 'Blues',
+            plot_kws={'alpha': 0.95,'s':0.01},
+            ).savefig(dirPath + '/figure.jpg')
+
+print("I'm Done!")
+#plt.show()
+
+
+
+
