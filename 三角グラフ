@@ -1,0 +1,97 @@
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import itertools
+
+"""
+https://qiita.com/WolfMoon/items/0c90ec9f7645129859b7
+"""
+
+def ternary_diagram(
+        df, title='Ternary Diagram',
+        lw=0.25, color='blue',
+        marker='o',
+        s=0.001,
+        alpha = 0.95,
+        index=False
+        ):
+
+    # 正三角形の頂点座標（外枠を閉じるために4点目を追加）
+    vertices = np.array([[0, 0], [1, 0], [1/2, np.sqrt(3) / 2], [0, 0]])
+
+    # プロットデータの初期化
+    n = len(df)
+    labels = df.columns
+    indexes = df.index
+    plot_data = np.zeros((n, 2))
+    var1 = df.iloc[:, 0].copy()
+    var2 = df.iloc[:, 1].copy()
+    var3 = df.iloc[:, 2].copy()
+
+    # 各変数の値を正規化してデータポイントの x-y 座標値を計算）
+    for i in range(n):
+        total = var1[i] + var2[i] + var3[i]
+        var1[i] /= total
+        var2[i] /= total
+        var3[i] /= total
+        plot_data[i] = vertices[0] + var1[i] * (vertices[1] - vertices[0]) + var2[i] * (vertices[2] - vertices[0])
+        if index == True:
+            plt.text(plot_data[i, 0], plot_data[i][1]+0.02, indexes[i], ha='center', va='bottom', fontsize=8)
+
+    # グリッド線の描画（AB, BC, CA に平行な破線）
+    for a in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
+        plt.text(1 - a/2, a * np.sqrt(3) / 2, f' {a}', ha='left', fontsize=9)
+        plt.text(a/2, a * np.sqrt(3) / 2, f'{round(1 - a, 1)} ', ha='right', fontsize=9)
+        plt.text(a, -0.05, a, ha='center', va='center', fontsize=9)
+        if a != 0.0 and a != 1.0:
+            plt.plot([a/2, 1 - a/2], [a * np.sqrt(3) / 2, a * np.sqrt(3) / 2], 'k--', linewidth=lw)
+            plt.plot([a, a/2], [0, a * np.sqrt(3) / 2], 'k--', linewidth=lw)
+            plt.plot([a, (1 + a)/2], [0, (1 - a) * np.sqrt(3) / 2], 'k--', linewidth=lw)
+
+    # プロット（外側の正三角形を描画，プロットポイントをマーカーで描画
+    plt.plot(vertices[:, 0], vertices[:, 1], 'k-', linewidth=lw*2)
+    plt.scatter(plot_data[:, 0], plot_data[:, 1], color=color, marker=marker, s=s)
+
+    # 軸のラベルを追加
+    delta = 0.125
+    plt.text(0.5, -0.1, labels[0], ha='center', va='center', fontsize=14)
+    plt.text(0.75+delta, np.sqrt(3)/4, labels[1], ha='center', va='center', fontsize=14, rotation=-60)
+    plt.text(0.25-delta, np.sqrt(3)/4, labels[2], ha='center', va='center', fontsize=14, rotation=60)
+
+    plt.xlim(-0.05, 1.05)
+    plt.ylim(-0.15, 1.0)
+    plt.title(title, fontsize=16)
+    #plt.axis([max(x), min(x), max(y), min(y)])
+    plt.axis('off')  # 座標軸を非表示
+    plt.axis('equal')  # アスペクト比を1:1に設定
+    plt.show()
+
+df_Al = pd.read_csv(r"---.csv")
+df_Ca = pd.read_csv(r"---.csv")
+df_Si = pd.read_csv(r"---.csv")
+
+#print(df_Si.shape)
+#print(df_Al.shape)
+#print(df_Ca.shape)
+
+list_Al = df_Al.values.tolist()
+list_Ca = df_Ca.values.tolist()
+list_Si = df_Si.values.tolist()
+
+list_Al_1d = list(itertools.chain.from_iterable(list_Al))
+list_Ca_1d = list(itertools.chain.from_iterable(list_Ca))
+list_Si_1d = list(itertools.chain.from_iterable(list_Si))
+
+#print(len(list_Si_1d))
+#print(len(list_Al_1d))
+#print(len(list_Ca_1d))
+
+df = pd.DataFrame({ 'Si' : list_Si_1d,
+                    'Ca' : list_Ca_1d,
+                    'Al' : list_Al_1d
+                    })
+
+#print(df.shape)
+#print(df)
+
+ternary_diagram(df, title='Al/Si/Ca ratio', index=False)
