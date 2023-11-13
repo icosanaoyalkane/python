@@ -1,0 +1,83 @@
+from scipy.optimize import curve_fit
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import pandas as pd
+
+"""
+https://qiita.com/kon2/items/6498e66af55949b41a99
+"""
+
+dataset = pd.read_csv(r"\\asds\グループ技術開発本部\TC000\04自部署限定_D\TC100\1002789_山本修也\99_その他\023_python\peak_split\data.csv")
+x = dataset['x']
+y = dataset['y']
+
+def func(x, *params):
+
+    #paramsの長さでフィッティングする関数の数を判別。
+    num_func = int(len(params)/3)
+
+    #ガウス関数にそれぞれのパラメータを挿入してy_listに追加。
+    y_list = []
+    for i in range(num_func):
+        y = np.zeros_like(x)
+        param_range = list(range(3*i,3*(i+1),1))
+        amp = params[int(param_range[0])]
+        ctr = params[int(param_range[1])]
+        wid = params[int(param_range[2])]
+        y = y + amp * np.exp( -((x - ctr)/wid)**2)
+        y_list.append(y)
+
+    #y_listに入っているすべてのガウス関数を重ね合わせる。
+    y_sum = np.zeros_like(x)
+    for i in y_list:
+        y_sum = y_sum + i
+
+    #最後にバックグラウンドを追加。
+    y_sum = y_sum + params[-1]
+
+    return y_sum
+
+
+def fit_plot(x, *params):
+    num_func = int(len(params)/3)
+    y_list = []
+    for i in range(num_func):
+        y = np.zeros_like(x)
+        param_range = list(range(3*i,3*(i+1),1))
+        amp = params[int(param_range[0])]
+        ctr = params[int(param_range[1])]
+        wid = params[int(param_range[2])]
+        y = y + amp * np.exp( -((x - ctr)/wid)**2) + params[-1]
+        y_list.append(y)
+    return y_list
+
+#初期値のリストを作成
+#[amp,ctr,wid]
+guess = []
+guess.append([0.012348279, 3185.75132, 141])
+guess.append([0.043827943, 3485.665154, 407.4605954])
+
+#バックグラウンドの初期値
+background = 5
+
+#初期値リストの結合
+guess_total = []
+for i in guess:
+    guess_total.extend(i)
+guess_total.append(background)
+
+popt, pcov = curve_fit(func, x, y, p0=guess_total)
+
+popt, pcov = curve_fit(func, x, y, p0=guess_total)
+
+fit = func(x, *popt)
+plt.scatter(x, y, s=20)
+plt.plot(x, fit , ls='-', c='black', lw=1)
+
+y_list = fit_plot(x, *popt)
+baseline = np.zeros_like(x) + popt[-1]
+for n,i in enumerate(y_list):
+    plt.fill_between(x, i, baseline, facecolor=cm.rainbow(n/len(y_list)), alpha=0.6)
+
+plt.show()
