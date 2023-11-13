@@ -1,0 +1,146 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.image as mpimg
+import extcolors
+
+from colormap import rgb2hex
+from PIL import Image
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+# https://dx-navigation.com/image_color_extraction/
+def exact_color(input_image, resize, tolerance, zoom):
+
+    # リサイズを実施
+    output_width = resize
+    img = Image.open(input_image)
+    if img.size[0] >= resize:
+        width_per_c = (output_width / float(img.size[0]))
+        hsize = int((float(img.size[1]) * float(width_per_c)))
+        img = img.resize((output_width, hsize), Image.ANTIALIAS)
+        resize_name = 'resize_' + input_image
+        img.save(resize_name)
+    else:
+        resize_name = input_image
+
+    # 背景を設定する
+    background = 'background.png'
+    fig, ax = plt.subplots(figsize=(192, 108), dpi=10)
+    fig.set_facecolor('white')
+    plt.savefig(background)
+    plt.close(fig)
+
+    # Dataframeの作成
+    img_real = resize_name
+    colors_x = extcolors.extract_from_path(img_real, tolerance=tolerance, limit=10)
+
+    colors_pre_list = str(colors_x).replace('([(', '').split(', (')[0:-1]
+    df_rgb = [i.split('), ')[0] + ')' for i in colors_pre_list]
+    df_percent = [i.split('), ')[1].replace(')', '') for i in colors_pre_list]
+
+    # RGBからHEXコードへの変換
+    df_color_up = [rgb2hex(int(i.split(", ")[0].replace("(", "")),
+                           int(i.split(", ")[1]),
+                           int(i.split(", ")[2].replace(")", ""))) for i in df_rgb]
+
+    df_color = pd.DataFrame(zip(df_color_up, df_percent), columns=['c_code', 'occurence'])
+
+
+    # 注釈を付ける
+    list_color = list(df_color['c_code'])
+    list_precent = [int(i) for i in list(df_color['occurence'])]
+    text_c = [c + ' ' + str(round(p * 100 / sum(list_precent), 1)) + '%' for c, p in zip(list_color, list_precent)]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(160, 120), dpi=10)
+
+    # donut plot
+    wedges, text = ax1.pie(list_precent,
+                           labels=text_c,
+                           labeldistance=1.05,
+                           colors=list_color,
+                           textprops={'fontsize': 150, 'color': 'black'})
+    plt.setp(wedges, width=0.3)
+
+    # donut plotの中心に画像を追加
+    img = mpimg.imread(resize_name)
+    imagebox = OffsetImage(img, zoom=zoom)
+    ab = AnnotationBbox(imagebox, (0, 0))
+    ax1.add_artist(ab)
+
+    # color palette
+    x_posi, y_posi, y_posi2 = 160, -170, -170
+    for c in list_color:
+        if list_color.index(c) <= 5:
+            y_posi += 180
+            rect = patches.Rectangle((x_posi, y_posi), 360, 160, facecolor=c)
+            ax2.add_patch(rect)
+            ax2.text(x=x_posi + 400, y=y_posi + 100, s=c, fontdict={'fontsize': 190})
+        else:
+            y_posi2 += 180
+            rect = patches.Rectangle((x_posi + 1000, y_posi2), 360, 160, facecolor=c)
+            ax2.add_artist(rect)
+            ax2.text(x=x_posi + 1400, y=y_posi2 + 100, s=c, fontdict={'fontsize': 190})
+
+    fig.set_facecolor('white')
+    ax2.axis('off')
+    # bg = plt.imread('bg.png')
+    # plt.imshow(bg)
+    # plt.tight_layout()
+    # fig.savefig('after_' + input_image)
+    return plt.show()
+
+
+# exact_color(r'C:\Users\1002789-Z100.GLOBAL\Desktop\1002789.jpg', 900, 36, 2.5)
+
+# 下記プログラム内容
+#  https://www.higashisalary.com/entry/cv2-color-extract
+# 94行目以下からプログラムが開始し、
+# 105,106行目のファイル名の変更
+# 116,117行目のindex_valueがある箇所を113,114のところで数字変更すれば使用可能です。（範囲は0～11）
+# 参考プログラムが色相を12分割しているので、更に細かくすることで表示した箇所の正確に算出することが可能になります。
+
+import cv2
+import numpy as np
+
+# 情報を入力する
+file_name = r'C:\Users\1002789-Z100.GLOBAL\Desktop\1002789.jpg'
+output_filename = r'C:\Users\1002789-Z100.GLOBAL\Desktop\1002789_out.jpg'
+color = 'red-orange'
+
+# 色を算出する関数
+def index_judge(color):
+    color_wheel = ['red', 'red-orange', 'yellow-orange',
+                 'yellow', 'yellow-green', 'green',
+                 'blue-green', 'green-blue', 'blue',
+                 'blue-violet', 'violet', 'red-violet']
+    index_value = color_wheel.index(color)
+    # hmax = 7.5 * (2 * index_value + 1)
+    # hmin = 7.5 * (2 * index_value - 1)
+    hmax = 7.5 * (2 * 2 + 1)  # ★ greenなら6
+    hmin = 7.5 * (2 * 0 - 1)  # ★ yellow-orangeなら2
+    return hmax, hmin, index_value
+    
+#  画像の読み込み⇒加工
+def image():
+    img = cv2.imread(file_name, cv2.IMREAD_COLOR)
+    hmax, hmin, index_value = index_judge(color)
+    imghsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    upper = np.where((imghsv[:, :, 0] > hmax), 0, 1)
+    if color == 'red':
+        lower = np.where((imghsv[:, :, 0] < hmin) & (imghsv[:, :, 0] > hmax), 0, 1)
+    else:
+        lower = np.where((imghsv[:, :, 0] < hmin), 0, 1)
+    upper_count = np.count_nonzero(imghsv[:, :, 0] < hmax)
+    lower_count = np.count_nonzero(imghsv[:, :, 0] > hmin)
+    all = img.shape[0] * img.shape[1]
+    count = upper_count + lower_count - all # 集合の計算n(AandB) = n(A) + n(B) - n(AorB)
+    range = count / all * 100
+    print("範囲内の割合:{:.1f}%".format(range))
+    # print("範囲内の割合", floot(range))
+
+    imghsv[:, :, 2] = imghsv[:, :, 2] * upper * lower
+    final_img = cv2.cvtColor(imghsv, cv2.COLOR_HSV2BGR)
+    #  画像の読み込み⇒加工
+    cv2.imwrite(output_filename, final_img)
+
+
+image()
