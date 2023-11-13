@@ -1,0 +1,232 @@
+import pandas as pd
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+from sklearn.linear_model import RidgeCV #パラメータα探索
+from yellowbrick.regressor import AlphaSelection #パラメータαプロット
+from sklearn.linear_model import LinearRegression #線形回帰(最小二乗法)
+from sklearn.linear_model import Ridge #リッジ回帰
+from sklearn.linear_model import Lasso #Lasso回帰
+from sklearn.model_selection import train_test_split #訓練/テストに分割
+from sklearn.ensemble import RandomForestRegressor #ランダムフォレスト回帰
+import xgboost #XGブースト
+from sklearn.svm import SVR #SVR
+from sklearn.neural_network import MLPRegressor #NN
+from sklearn.model_selection import GridSearchCV
+import optuna
+from sklearn.model_selection import cross_val_score
+
+
+filepath = r'C:\Users\1002789-Z100.GLOBAL\Desktop\tg.csv' #Path
+
+df = pd.read_csv(filepath) #csv➜Pandas
+#print(df)
+
+df_x = df.drop('y', axis=1) #説明変数x
+df_y = df['y'] #目的変数y
+# print(df_x)
+# print(df_y)
+
+train_x, test_x, train_y, test_y = train_test_split(df_x, df_y, test_size=0.2, random_state=0)
+# print(test_y)
+# print(train_y)   
+
+# Ridge回帰------------------------------------------
+# ハイパーパラメータのチューニング
+params_R = {"alpha":np.logspace(-10, 10, 500)}
+gridsearch = GridSearchCV(Ridge(), params_R, scoring="r2", return_train_score=True)
+gridsearch.fit(train_x, train_y)
+ridge = Ridge(alpha=gridsearch.best_params_["alpha"] ).fit(train_x, train_y) # 上記のα値を採用
+
+print(' ')
+print(f"Ridge_train Score ==>: {ridge.score(train_x, train_y):.2}")
+print(f"Ridge_test Score ==>: {ridge.score(test_x, test_y):.2f}")
+print("Ridge_α =", gridsearch.best_params_, "精度 =", gridsearch.best_score_)
+print("Ridge_切片 ：",ridge.intercept_) 
+print("Ridge_係数 ：",ridge.coef_) 
+print(' ')
+
+Rd_train = ridge.predict(train_x)
+Rd_test = ridge.predict(test_x)
+
+
+# Lasso回帰------------------------------------------
+# ハイパーパラメータのチューニング
+params_L = {"alpha":np.logspace(-10, 10, 500)}
+gridsearch = GridSearchCV(Lasso(), params_L, scoring="r2", return_train_score=True)
+gridsearch.fit(train_x, train_y)
+lasso = Lasso(alpha=gridsearch.best_params_["alpha"] ).fit(train_x, train_y) # 上記のα値を採用
+
+print(' ')
+print(f"Lasso_train Score ==>: {lasso.score(train_x, train_y):.2}")
+print(f"Lasso_test Score ==>: {lasso.score(test_x, test_y):.2f}")
+print("Lasso_α =", gridsearch.best_params_, "精度 =", gridsearch.best_score_)
+print(f"Lasso_使われている特徴量の数: {np.sum(lasso.coef_ != 0)}")
+print(' ')
+
+Ls_train = lasso.predict(train_x)
+Ls_test = lasso.predict(test_x)
+
+
+
+# ランダムフォレスト---------------------------------------
+# 学習モデルを作成
+model = RandomForestRegressor(random_state=0)
+
+# optunaの目的関数を設定する
+def objective(trial):
+    #criterion = trial.suggest_categorical('criterion', ['mse', 'mae'])
+    #bootstrap = trial.suggest_categorical('bootstrap',['True','False'])
+    max_depth = trial.suggest_int('max_depth', 1, 1000)
+    max_features = trial.suggest_categorical('max_features', ['auto', 'sqrt','log2'])
+    max_leaf_nodes = trial.suggest_int('max_leaf_nodes', 1,1000)
+    n_estimators =  trial.suggest_int('n_estimators', 1, 1000)
+    min_samples_split = trial.suggest_int('min_samples_split',2,5)
+    min_samples_leaf = trial.suggest_int('min_samples_leaf',1,10)
+    
+    regr = RandomForestRegressor(max_depth = max_depth, max_features = max_features,
+                                 max_leaf_nodes = max_leaf_nodes,n_estimators = n_estimators,
+                                 min_samples_split = min_samples_split,min_samples_leaf = min_samples_leaf,
+                                 n_jobs=-1)
+    score = cross_val_score(regr, train_x, train_y, cv=5, scoring="r2")
+    r2_mean = score.mean()
+    print(r2_mean)
+
+    return r2_mean
+
+# optunaで最適値を見つける
+study = optuna.create_study(direction='maximize')
+study.optimize(objective, n_trials=10)
+
+
+# チューニングしたハイパーパラメーターをフィット
+optimised_rf = RandomForestRegressor(max_depth = study.best_params['max_depth'], max_features = study.best_params['max_features'],
+                                     max_leaf_nodes = study.best_params['max_leaf_nodes'],n_estimators = study.best_params['n_estimators'],
+                                     min_samples_split = study.best_params['min_samples_split'],min_samples_leaf = study.best_params['min_samples_leaf'],
+
+                                     n_jobs=3)
+
+
+optimised_rf.fit(train_x ,train_y)
+
+
+#結果の表示
+print(' ')
+print("RF_train Score ==>", optimised_rf.score(train_x ,train_y))
+print("RF_test Score ==>", optimised_rf.score(test_x, test_y))
+print(' ')
+
+RF_train = optimised_rf.predict(train_x)
+RF_test = optimised_rf.predict(test_x)
+
+# Feature Importance
+# model.feature_importances_で特徴量の重要度を呼び出して、ftiも保存する
+# fti = optimised_rf.feature_importances_
+# #特徴量のカラム名をRF_featureに入れて表示した
+# RF_feature = df_x.columns
+
+# #棒グラフを書く
+# plt.figure(figsize=(12,6))
+# plt.bar(RF_feature,fti)
+# # x軸縦書き（90度回転）
+# plt.xticks(rotation=90)
+# plt.show()
+
+
+
+# XGブースト---------------------------------------
+
+regr = xgboost.XGBRegressor(random_state=0)
+regr.fit(train_x ,train_y)
+
+#結果の表示
+print(' ')
+print("XG_train Score ==>", regr.score(train_x ,train_y))
+print("XG_test Score ==>", regr.score(test_x, test_y))
+print(' ')
+
+XG_train = regr.predict(train_x)
+XG_test = regr.predict(test_x)
+
+# SVR ---------------------------------------
+# ハイパーパラメータのチューニング
+params_cnt = 20
+params = {"C":np.logspace(0,2,params_cnt), "epsilon":np.logspace(-1,1,params_cnt)}
+gridsearch = GridSearchCV(SVR(), params, scoring="r2", return_train_score=True)
+gridsearch.fit(train_x ,train_y)
+
+regr_svr = SVR(C=gridsearch.best_params_["C"], epsilon=gridsearch.best_params_["epsilon"])
+regr_svr.fit(train_x ,train_y)
+
+#結果の表示
+print(' ')
+print("SVR_train Score ==>", regr_svr.score(train_x ,train_y))
+print("SVR_test Score ==>", regr_svr.score(test_x, test_y))
+print(' ')
+
+SVR_train = regr_svr.predict(train_x)
+SVR_test = regr_svr.predict(test_x)
+
+
+# NN ---------------------------------------
+model = MLPRegressor(hidden_layer_sizes=(100,100,100,100,),random_state=0)
+model.fit(train_x ,train_y)
+
+#結果の表示
+print(' ')
+print("NN_train Score ==>", model.score(train_x ,train_y))
+print("NN_test Score ==>", model.score(test_x, test_y))
+print(' ')
+
+NN_train = model.predict(train_x)
+NN_test = model.predict(test_x)
+
+# 散布図を並べて描画--------------------------------
+
+fig, axes = plt.subplots(nrows=3, ncols=2, sharex=False)
+
+axes[0,0].scatter(train_y, Rd_train, color="b", label="train") 
+axes[0,0].scatter(test_y, Rd_test, color="r", label="test") 
+axes[0,0].set_xlabel("Actual")
+axes[0,0].set_ylabel("predict")
+axes[0,0].set_title("Ridge_regression")
+axes[0,0].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+axes[0,1].scatter(train_y, Ls_train, color="b", label="train") 
+axes[0,1].scatter(test_y, Ls_test, color="r", label="test") 
+axes[0,1].set_xlabel("Actual")
+axes[0,1].set_ylabel("predict")
+axes[0,1].set_title("Lasso_regression")
+axes[0,1].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+axes[1,0].scatter(train_y, RF_train, color="b", label="train") 
+axes[1,0].scatter(test_y, RF_test, color="r", label="test") 
+axes[1,0].set_xlabel("Actual")
+axes[1,0].set_ylabel("predict")
+axes[1,0].set_title("RandomForest_regression")
+axes[1,0].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+axes[1,1].scatter(train_y, XG_train, color="b", label="train") 
+axes[1,1].scatter(test_y, XG_test, color="r", label="test") 
+axes[1,1].set_xlabel("Actual")
+axes[1,1].set_ylabel("predict")
+axes[1,1].set_title("XGboost_regression")
+axes[1,1].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+axes[2,0].scatter(train_y, SVR_train, color="b", label="train") 
+axes[2,0].scatter(test_y, SVR_test, color="r", label="test") 
+axes[2,0].set_xlabel("Actual")
+axes[2,0].set_ylabel("predict")
+axes[2,0].set_title("SVR_regression")
+axes[2,0].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+axes[2,1].scatter(train_y, NN_train, color="b", label="train") 
+axes[2,1].scatter(test_y, NN_test, color="r", label="test") 
+axes[2,1].set_xlabel("Actual")
+axes[2,1].set_ylabel("predict")
+axes[2,1].set_title("NN_regression")
+axes[2,1].legend(bbox_to_anchor=(1, 1), loc='upper left')
+
+plt.tight_layout()
+plt.show()
+
