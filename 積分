@@ -1,0 +1,34 @@
+
+import numpy as np
+from scipy import integrate
+import matplotlib.pyplot as plt
+
+#csvファイルをnumpyで読み込み
+##INPUT(解析したいcsvファイルの場所)##
+filepath = r'---.csv'
+#########
+data = np.loadtxt(filepath, delimiter=',', skiprows=1)
+
+##INPUT(xの範囲)##
+fr = 3000
+to = 4000
+#########
+
+range = data[(data[:,1] > fr) & (data[:,1] < to)]
+print('用いたデータ範囲：')
+print()
+print(range)
+
+# 台形公式を使って積分
+y = range[:,0]
+x = range[:,1]
+s = integrate.trapz(y, x)
+
+print()
+print('積分値： ' + str(s))
+
+#グラフ化
+plt.plot(x,y,'blue')
+plt.fill_between(x,y,color='blue',alpha=0.1)
+plt.show()
+
