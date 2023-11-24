@@ -1,0 +1,155 @@
+import os
+from pypdf import PdfReader, PdfWriter
+import tkinter as tk
+import pandas as pd
+import tempfile
+import msoffcrypto
+from pathlib import WindowsPath
+from win32com.client.gencache import EnsureDispatch
+
+
+# Source
+# https://pypdf.readthedocs.io/en/stable/user/encryption-decryption.html
+# ttps://qiita.com/kira4845/items/b8182414370dffccc217
+
+def set_password(src_path, dst_path, user_password):
+
+    reader = PdfReader(src_path)
+    writer = PdfWriter()
+
+    # Add all pages to the writer
+    for page in reader.pages:
+        writer.add_page(page)
+
+    # Add a password to the new PDF
+    writer.encrypt(user_password, algorithm="AES-256")
+
+    # Save the new PDF to a file
+    with open(dst_path, "wb") as f:
+        writer.write(f)
+
+def enter_info():
+    # Create main window
+    baseGround = tk.Tk()
+    # Window size
+    baseGround.geometry('500x300')
+    # Title
+    baseGround.title('Enter info.')
+
+    # Label
+    label1 = tk.Label(text='日時を入力してください_yymmdd ex)230101')
+    label1.place(x=30, y=70)
+
+    label2 = tk.Label(text='あんしん休暇を取得した対象者の氏名を入力してください ex)安心 太郎')
+    label2.place(x=30, y=120)
+
+    label3 = tk.Label(text='対象者の上司の氏名を入力してください ex)上司 太郎')
+    label3.place(x=30, y=170)
+
+    # Text box
+    textBox1 = tk.Entry(width=40)
+    textBox1.place(x=30, y=90)
+
+    textBox2 = tk.Entry(width=40)
+    textBox2.place(x=30, y=140)
+
+    textBox3 = tk.Entry(width=40)
+    textBox3.place(x=30, y=190)
+
+    def val():
+        # Get entered text
+        global date, name, boss
+        date = textBox1.get()
+        name = textBox2.get()
+        boss = textBox3.get()
+        baseGround.destroy()
+        return date, name, boss
+
+    # Button
+    button = tk.Button(baseGround,
+                text = 'OK',
+                # クリック時にval()関数を呼ぶ
+                command = val
+                ).place(x=30, y=240)
+
+    baseGround.mainloop()
+
+    return date, name, boss
+
+def record_xlsx(xlsx_path, xlsx_pass, date, boss, name, filename):
+
+    # パスワード付きExcelファイルを読み込む
+    with open(xlsx_path,"rb") as f, tempfile.TemporaryFile() as tf:
+        msfile = msoffcrypto.OfficeFile(f)
+        msfile.load_key(password=xlsx_pass)
+        msfile.decrypt(tf)
+
+        df_xlsx = pd.read_excel(tf)
+        print(df_xlsx)
+        df = pd.DataFrame({
+                            '受取日': date,
+                            '上司': boss,
+                            '対象者': name,
+                            'ファイル名':filename},
+                            index=[0])
+        df_sum = pd.concat([df_xlsx, df], axis=0)
+        df_sum = df_sum.reset_index(drop=True)
+
+    return df_sum
+
+def set_wb_password_with_win32(xlsx_new, xlsx_pass):
+    xl_file = EnsureDispatch("Excel.Application")
+    wb = xl_file.Workbooks.Open(xlsx_path)
+    xl_file.DisplayAlerts = False
+    wb.Visiable = False
+    wb.SaveAs(xlsx_path, Password=xlsx_pass)
+    wb.Close()
+    xl_file.Quit()
+
+
+### USER INPUT ###
+IN_dir = r"---"
+OUT_dir = r"---"
+pdf_pass = "---"
+xlsx_pass = "---"
+xlsx_path = r"---"
+### USER INPUT ###
+
+
+if __name__ == "__main__":
+
+    """
+    [0]前処理
+    [1]INフォルダ内のファイルをPDFに変換
+    [2]INフォルダ内のPDFにパスワードを掛けてOUTファイルに保存
+    [3]Excel台帳に記載する情報を入力させる
+    [4]入力情報をExcelに記帳し、パスをかけ直して保存
+
+    """
+    #[0]Get Directory
+    files = os.listdir(IN_dir)
+    num = len(files)
+
+    for n in range(0,num):
+
+        # [0]Get file name
+        filename = str(files[n])
+
+        # [0]Define file name
+        path_origin = os.path.join(IN_dir, filename)
+        path_pass = os.path.join(OUT_dir, filename)
+
+        # [2]
+        set_password(path_origin, path_pass, pdf_pass)
+
+        # [3]
+        date, name, boss = enter_info()
+        df_sum = record_xlsx(xlsx_path, xlsx_pass, date, boss, name, filename)
+        print(df_sum)
+
+        # [4]
+        xlsx_new = df_sum.to_excel(xlsx_path, 'w', index=False)
+        set_wb_password_with_win32(xlsx_new, xlsx_pass)
+
+
+
