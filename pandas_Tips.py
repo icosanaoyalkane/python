@@ -1,5 +1,16 @@
 import pandas as pd
 
+df = pd.DataFrame([
+    [1, 'Taro', 12],
+    [2, 'Yoshiko', 25],
+    [3, 'Hanako', 18],
+    [4, 'Santa', 25],
+    [5, 'Nobu', 16],
+    [6, 'Haruka', 29]],
+    columns=['id','name','score']
+)
+
+
 #read csv ---------------
 df = pd.read_csv("file:/tmp/covid.csv")
 df = pd.read_csv(i, encoding='shift_jis') #encording
