@@ -1,0 +1,6 @@
+# [Process-3] ebayAPIに接続してアイテムリストを取得(=ebayリスト)
+api = Myebayselling_2.ebayaccess(appid, devid, certid, token) # eBayにつなぐよ(別のプログラムを参照してるよ)
+Total_pages, Total_items_for_sale, df_items_for_sale = Myebayselling_2.Get_Total_pages_and_items(api) #アイテムリストを取得するよ(別のプログラムを参照してるよ)
+print('総ページ数：' + str(Total_pages))
+print('総アイテム数：' + str(Total_items_for_sale))
+print(df_items_for_sale)
