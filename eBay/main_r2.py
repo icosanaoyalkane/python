@@ -1,20 +1,19 @@
 import pandas as pd
 import my_function
-pd.set_option('display.max_columns', 10)
 
 ###ここに必要な情報を入力してください###
 
 # [info-1] json file of GCP
-jsonf = r"C:\Program Files\GoogleJson\my-project-231111-404805-f37bb6097f31.json"
+jsonf = {input}
 
 # [info-2] https://docs.google.com/spreadsheets/d/""HERE IS spread_sheet_key""/edit#gid=0
-spread_sheet_key = '1WpmaSrPN051toCv8NH8hkMJwGY8ZkB9fNt-vmmS949I'
+spread_sheet_key = {input}
 
 # [info-3] ebai-api
-appid = "naoyayam-icosanao-PRD-86768949d-158880ec"
-devid =  "822dc984-2a71-490b-89bb-e7b11893d2fa"
-certid = "PRD-6768949d9f2f-27c6-4dcb-903f-d961"
-token = "v^1.1#i^1#p^3#r^1#I^3#f^0#t^Ul4xMF84Ojg2M0VBODA0RTYzNzY3MjFCNUNEMjc3MzhCRjY1ODlCXzNfMSNFXjI2MA=="
+appid = {input}
+devid =  {input}
+certid = {input}
+token = {input}
 
 # [info-4] 在庫を判定するキーワード
 stock_check_keyword = {
